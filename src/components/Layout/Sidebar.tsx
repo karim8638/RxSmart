@@ -19,6 +19,7 @@ import {
   X,
   ChevronDown,
   ChevronRight,
+  Crown,
 } from 'lucide-react';
 import { useAuthContext } from '../../contexts/AuthContext';
 
@@ -26,7 +27,7 @@ const Sidebar: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [expandedSections, setExpandedSections] = useState<string[]>(['settings']);
-  const { signOut } = useAuthContext();
+  const { signOut, appUser } = useAuthContext();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -50,6 +51,10 @@ const Sidebar: React.FC = () => {
     { icon: CreditCard, label: 'Payments', path: '/payments' },
     { icon: TrendingUp, label: 'Expenses', path: '/expenses' },
     { icon: Users, label: 'Patients', path: '/patients' },
+  ];
+
+  const adminNavItems = [
+    { icon: Crown, label: 'Subscriptions', path: '/subscriptions' },
   ];
 
   const settingsItems = [
@@ -104,6 +109,33 @@ const Sidebar: React.FC = () => {
                 </NavLink>
               ))}
             </div>
+
+            {/* Admin Section */}
+            {appUser?.role === 'admin' && (
+              <div className="mt-8">
+                <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  {!isCollapsed && 'Admin'}
+                </div>
+                <div className="space-y-2">
+                  {adminNavItems.map((item) => (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      className={({ isActive }) =>
+                        `flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          isActive
+                            ? 'bg-purple-50 text-purple-600'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        }`
+                      }
+                    >
+                      <item.icon className="w-5 h-5" />
+                      {!isCollapsed && <span>{item.label}</span>}
+                    </NavLink>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Settings Section */}
             <div className="mt-8">

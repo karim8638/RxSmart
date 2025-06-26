@@ -12,6 +12,7 @@ import {
 import { supabase } from '../../lib/supabase';
 import { Medicine, Sale, Patient } from '../../types';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
+import SubscriptionStatus from '../Subscriptions/SubscriptionStatus';
 
 interface DashboardStats {
   totalSales: number;
@@ -194,38 +195,46 @@ const Dashboard: React.FC = () => {
         />
       </div>
 
-      {/* Alerts */}
-      {(stats.lowStockCount > 0 || stats.expiringCount > 0) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {stats.lowStockCount > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
-              <div className="flex items-center space-x-3 mb-4">
-                <AlertTriangle className="w-6 h-6 text-amber-600" />
-                <h3 className="text-lg font-semibold text-amber-800">Low Stock Alert</h3>
-              </div>
-              <p className="text-amber-700 mb-4">{stats.lowStockCount} medicines are running low on stock</p>
-              <div className="space-y-2">
-                {stats.lowStockMedicines.map((medicine) => (
-                  <div key={medicine.id} className="flex justify-between items-center text-sm">
-                    <span className="font-medium">{medicine.name}</span>
-                    <span className="text-amber-600">{medicine.quantity} left</span>
+      {/* Subscription Status and Alerts */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1">
+          <SubscriptionStatus />
+        </div>
+        
+        <div className="lg:col-span-2">
+          {(stats.lowStockCount > 0 || stats.expiringCount > 0) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {stats.lowStockCount > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <AlertTriangle className="w-6 h-6 text-amber-600" />
+                    <h3 className="text-lg font-semibold text-amber-800">Low Stock Alert</h3>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                  <p className="text-amber-700 mb-4">{stats.lowStockCount} medicines are running low on stock</p>
+                  <div className="space-y-2">
+                    {stats.lowStockMedicines.map((medicine) => (
+                      <div key={medicine.id} className="flex justify-between items-center text-sm">
+                        <span className="font-medium">{medicine.name}</span>
+                        <span className="text-amber-600">{medicine.quantity} left</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-          {stats.expiringCount > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-6">
-              <div className="flex items-center space-x-3 mb-4">
-                <AlertTriangle className="w-6 h-6 text-red-600" />
-                <h3 className="text-lg font-semibold text-red-800">Expiry Alert</h3>
-              </div>
-              <p className="text-red-700">{stats.expiringCount} medicines are expiring within 30 days</p>
+              {stats.expiringCount > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <AlertTriangle className="w-6 h-6 text-red-600" />
+                    <h3 className="text-lg font-semibold text-red-800">Expiry Alert</h3>
+                  </div>
+                  <p className="text-red-700">{stats.expiringCount} medicines are expiring within 30 days</p>
+                </div>
+              )}
             </div>
           )}
         </div>
-      )}
+      </div>
 
       {/* Recent Sales */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">

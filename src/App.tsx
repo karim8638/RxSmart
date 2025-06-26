@@ -6,6 +6,8 @@ import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 import Dashboard from './components/Dashboard/Dashboard';
 import MedicineList from './components/Medicines/MedicineList';
+import SubscriptionRequest from './components/Subscriptions/SubscriptionRequest';
+import SubscriptionManagement from './components/Subscriptions/SubscriptionManagement';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuthContext();
@@ -21,12 +23,31 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return user ? <>{children}</> : <Navigate to="/login" replace />;
 };
 
+const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { appUser, loading } = useAuthContext();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+  
+  return appUser?.role === 'admin' ? <>{children}</> : <Navigate to="/" replace />;
+};
+
 const AppRoutes: React.FC = () => {
   return (
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/subscription-request" element={
+          <ProtectedRoute>
+            <SubscriptionRequest />
+          </ProtectedRoute>
+        } />
         <Route path="/" element={
           <ProtectedRoute>
             <Layout />
@@ -39,6 +60,11 @@ const AppRoutes: React.FC = () => {
           <Route path="payments" element={<div className="p-8 text-center">Payments module coming soon...</div>} />
           <Route path="expenses" element={<div className="p-8 text-center">Expenses module coming soon...</div>} />
           <Route path="patients" element={<div className="p-8 text-center">Patients module coming soon...</div>} />
+          <Route path="subscriptions" element={
+            <AdminRoute>
+              <SubscriptionManagement />
+            </AdminRoute>
+          } />
           <Route path="settings/*" element={<div className="p-8 text-center">Settings module coming soon...</div>} />
         </Route>
       </Routes>
