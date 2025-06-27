@@ -1,35 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, AlertTriangle, Calendar, Package, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, AlertTriangle, Calendar, Package, Edit, Trash2, Wifi, WifiOff } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Medicine } from '../../types';
 import { format, isAfter, addDays } from 'date-fns';
+import { useRealtimeData } from '../../hooks/useRealtimeData';
+import AddMedicineForm from './AddMedicineForm';
 
 const MedicineList: React.FC = () => {
-  const [medicines, setMedicines] = useState<Medicine[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
+  // Use real-time data hook
+  const {
+    data: medicines,
+    loading,
+    error,
+    refresh,
+  } = useRealtimeData<Medicine>({
+    table: 'medicines',
+    orderBy: { column: 'name', ascending: true },
+    cacheKey: 'medicines_list',
+  });
+
+  // Monitor online status
   useEffect(() => {
-    fetchMedicines();
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
-
-  const fetchMedicines = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('medicines')
-        .select('*')
-        .order('name', { ascending: true });
-
-      if (error) throw error;
-      setMedicines(data || []);
-    } catch (error) {
-      console.error('Error fetching medicines:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filteredMedicines = medicines.filter(medicine =>
     medicine.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -53,14 +60,28 @@ const MedicineList: React.FC = () => {
           .eq('id', id);
 
         if (error) throw error;
-        fetchMedicines();
       } catch (error) {
         console.error('Error deleting medicine:', error);
+        alert('Failed to delete medicine. Please try again.');
       }
     }
   };
 
-  if (loading) {
+  const handleEditMedicine = (medicine: Medicine) => {
+    setEditingMedicine(medicine);
+    setShowAddForm(true);
+  };
+
+  const handleCloseForm = () => {
+    setShowAddForm(false);
+    setEditingMedicine(null);
+  };
+
+  const handleFormSuccess = () => {
+    refresh();
+  };
+
+  if (loading && medicines.length === 0) {
     return (
       <div className="space-y-6">
         <div className="animate-pulse">
@@ -81,7 +102,22 @@ const MedicineList: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Medicines</h1>
+        <div className="flex items-center space-x-4">
+          <h1 className="text-2xl font-bold text-gray-900">Medicines</h1>
+          <div className="flex items-center space-x-2">
+            {isOnline ? (
+              <div className="flex items-center space-x-1 text-green-600">
+                <Wifi className="w-4 h-4" />
+                <span className="text-sm font-medium">Online</span>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-1 text-red-600">
+                <WifiOff className="w-4 h-4" />
+                <span className="text-sm font-medium">Offline</span>
+              </div>
+            )}
+          </div>
+        </div>
         <button
           onClick={() => setShowAddForm(true)}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
@@ -90,6 +126,29 @@ const MedicineList: React.FC = () => {
           <span>Add Medicine</span>
         </button>
       </div>
+
+      {error && !isOnline && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <WifiOff className="w-5 h-5" />
+            <span>You're offline. Showing cached data. Changes will sync when you're back online.</span>
+          </div>
+        </div>
+      )}
+
+      {error && isOnline && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          <div className="flex items-center justify-between">
+            <span>Error loading medicines: {error}</span>
+            <button
+              onClick={refresh}
+              className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Search */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -108,7 +167,7 @@ const MedicineList: React.FC = () => {
       {/* Medicine Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredMedicines.map((medicine) => (
-          <div key={medicine.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div key={medicine.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
             <div className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
@@ -117,7 +176,7 @@ const MedicineList: React.FC = () => {
                 </div>
                 <div className="flex space-x-2">
                   <button
-                    onClick={() => setEditingMedicine(medicine)}
+                    onClick={() => handleEditMedicine(medicine)}
                     className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
                   >
                     <Edit className="w-4 h-4" />
@@ -183,15 +242,23 @@ const MedicineList: React.FC = () => {
         ))}
       </div>
 
-      {filteredMedicines.length === 0 && (
+      {filteredMedicines.length === 0 && !loading && (
         <div className="text-center py-12">
           <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No medicines found</h3>
-          <p className="text-gray-600">Try adjusting your search or add a new medicine.</p>
+          <p className="text-gray-600">
+            {searchTerm ? 'Try adjusting your search or add a new medicine.' : 'Get started by adding your first medicine.'}
+          </p>
         </div>
       )}
 
-      {/* Add/Edit Medicine Modal would go here */}
+      {/* Add/Edit Medicine Modal */}
+      <AddMedicineForm
+        isOpen={showAddForm}
+        onClose={handleCloseForm}
+        onSuccess={handleFormSuccess}
+        editingMedicine={editingMedicine}
+      />
     </div>
   );
 };

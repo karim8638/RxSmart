@@ -7,12 +7,17 @@ import {
   Users, 
   Receipt,
   Calendar,
-  DollarSign
+  DollarSign,
+  Wifi,
+  WifiOff,
+  RefreshCw
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Medicine, Sale, Patient } from '../../types';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import SubscriptionStatus from '../Subscriptions/SubscriptionStatus';
+import { useRealtimeData } from '../../hooks/useRealtimeData';
+import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 interface DashboardStats {
   totalSales: number;
@@ -37,10 +42,61 @@ const Dashboard: React.FC = () => {
     lowStockMedicines: [],
   });
   const [loading, setLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  // Cache dashboard stats
+  const [cachedStats, setCachedStats] = useLocalStorage({
+    key: 'dashboard_stats',
+    defaultValue: stats,
+  });
+
+  // Real-time data for medicines
+  const { data: medicines } = useRealtimeData<Medicine>({
+    table: 'medicines',
+    cacheKey: 'dashboard_medicines',
+  });
+
+  // Real-time data for sales
+  const { data: sales } = useRealtimeData<Sale>({
+    table: 'sales',
+    cacheKey: 'dashboard_sales',
+  });
+
+  // Real-time data for patients
+  const { data: patients } = useRealtimeData<Patient>({
+    table: 'patients',
+    cacheKey: 'dashboard_patients',
+  });
+
+  // Monitor online status
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      fetchDashboardStats();
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Load cached data immediately when offline
+  useEffect(() => {
+    if (!isOnline && cachedStats) {
+      setStats(cachedStats);
+      setLoading(false);
+    }
+  }, [isOnline, cachedStats]);
 
   useEffect(() => {
     fetchDashboardStats();
-  }, []);
+  }, [medicines, sales, patients]);
 
   const fetchDashboardStats = async () => {
     try {
@@ -49,62 +105,62 @@ const Dashboard: React.FC = () => {
       const todayEnd = endOfDay(today);
       const thirtyDaysAgo = subDays(today, 30);
 
-      // Fetch sales data
-      const { data: salesData } = await supabase
-        .from('sales')
-        .select('*')
-        .gte('created_at', thirtyDaysAgo.toISOString());
+      // Calculate stats from real-time data
+      const totalSales = sales.reduce((sum, sale) => {
+        const saleDate = new Date(sale.created_at);
+        return saleDate >= thirtyDaysAgo ? sum + sale.total_amount : sum;
+      }, 0);
 
-      // Fetch today's sales
-      const { data: todaySalesData } = await supabase
-        .from('sales')
-        .select('total_amount')
-        .gte('created_at', todayStart.toISOString())
-        .lte('created_at', todayEnd.toISOString());
+      const todaySalesAmount = sales.reduce((sum, sale) => {
+        const saleDate = new Date(sale.created_at);
+        return saleDate >= todayStart && saleDate <= todayEnd ? sum + sale.total_amount : sum;
+      }, 0);
 
-      // Fetch recent sales with patient info
-      const { data: recentSalesData } = await supabase
-        .from('sales')
-        .select(`
-          *,
-          patients (name)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      // Fetch medicines data
-      const { data: medicinesData } = await supabase
-        .from('medicines')
-        .select('*');
-
-      // Fetch patients count
-      const { data: patientsData } = await supabase
-        .from('patients')
-        .select('id');
-
-      const totalSales = salesData?.reduce((sum, sale) => sum + sale.total_amount, 0) || 0;
-      const todaySalesAmount = todaySalesData?.reduce((sum, sale) => sum + sale.total_amount, 0) || 0;
-      const totalMedicines = medicinesData?.length || 0;
-      const lowStockMedicines = medicinesData?.filter(med => med.quantity <= med.min_stock_level) || [];
-      const expiringMedicines = medicinesData?.filter(med => {
+      const lowStockMedicines = medicines.filter(med => med.quantity <= med.min_stock_level);
+      const expiringMedicines = medicines.filter(med => {
         const expiryDate = new Date(med.expiry_date);
         const thirtyDaysFromNow = new Date();
         thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
         return expiryDate <= thirtyDaysFromNow;
-      }) || [];
+      });
 
-      setStats({
+      // Fetch recent sales with patient info if online
+      let recentSalesData = [];
+      if (isOnline) {
+        const { data } = await supabase
+          .from('sales')
+          .select(`
+            *,
+            patients (name)
+          `)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        recentSalesData = data || [];
+      } else {
+        // Use cached recent sales
+        recentSalesData = cachedStats.recentSales || [];
+      }
+
+      const newStats = {
         totalSales,
-        totalMedicines,
+        totalMedicines: medicines.length,
         lowStockCount: lowStockMedicines.length,
         expiringCount: expiringMedicines.length,
-        totalPatients: patientsData?.length || 0,
+        totalPatients: patients.length,
         todaySales: todaySalesAmount,
-        recentSales: recentSalesData || [],
+        recentSales: recentSalesData,
         lowStockMedicines: lowStockMedicines.slice(0, 5),
-      });
+      };
+
+      setStats(newStats);
+      setCachedStats(newStats);
+      setLastUpdated(new Date());
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
+      // Use cached data if available
+      if (cachedStats && Object.keys(cachedStats).length > 0) {
+        setStats(cachedStats);
+      }
     } finally {
       setLoading(false);
     }
@@ -139,7 +195,7 @@ const Dashboard: React.FC = () => {
     </div>
   );
 
-  if (loading) {
+  if (loading && !cachedStats) {
     return (
       <div className="space-y-6">
         <div className="animate-pulse">
@@ -161,11 +217,51 @@ const Dashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <div className="flex items-center space-x-2 text-sm text-gray-600">
-          <Calendar className="w-4 h-4" />
-          <span>{format(new Date(), 'MMMM dd, yyyy')}</span>
+        <div className="flex items-center space-x-4">
+          {/* Online/Offline Status */}
+          <div className="flex items-center space-x-2">
+            {isOnline ? (
+              <div className="flex items-center space-x-1 text-green-600">
+                <Wifi className="w-4 h-4" />
+                <span className="text-sm font-medium">Online</span>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-1 text-red-600">
+                <WifiOff className="w-4 h-4" />
+                <span className="text-sm font-medium">Offline</span>
+              </div>
+            )}
+          </div>
+
+          {/* Last Updated */}
+          {lastUpdated && (
+            <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <Calendar className="w-4 h-4" />
+              <span>Updated: {format(lastUpdated, 'HH:mm:ss')}</span>
+            </div>
+          )}
+
+          {/* Refresh Button */}
+          <button
+            onClick={fetchDashboardStats}
+            disabled={!isOnline}
+            className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>Refresh</span>
+          </button>
         </div>
       </div>
+
+      {/* Offline Banner */}
+      {!isOnline && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <WifiOff className="w-5 h-5" />
+            <span>You're offline. Showing cached data. Data will sync when you're back online.</span>
+          </div>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
