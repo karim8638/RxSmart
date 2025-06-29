@@ -7,8 +7,11 @@ import AdminRoute from './components/Admin/AdminRoute';
 import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 import Dashboard from './components/Dashboard/Dashboard';
+import MobileDashboard from './components/Dashboard/MobileDashboard';
 import MedicineList from './components/Medicines/MedicineList';
 import ReportsAnalytics from './components/Reports/ReportsAnalytics';
+import CustomReportBuilder from './components/Reports/CustomReportBuilder';
+import EmailReports from './components/Reports/EmailReports';
 import SubscriptionRequest from './components/Subscriptions/SubscriptionRequest';
 import SubscriptionManagement from './components/Subscriptions/SubscriptionManagement';
 import AdminDashboard from './components/Admin/AdminDashboard';
@@ -42,7 +45,26 @@ const AdminRouteWrapper: React.FC<{ children: React.ReactNode }> = ({ children }
   return appUser?.role === 'admin' ? <>{children}</> : <Navigate to="/" replace />;
 };
 
+// Mobile detection hook
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  return isMobile;
+};
+
 const AppRoutes: React.FC = () => {
+  const isMobile = useIsMobile();
+
   return (
     <Router>
       <Routes>
@@ -75,7 +97,7 @@ const AppRoutes: React.FC = () => {
         {/* Regular User Routes */}
         <Route path="/" element={
           <ProtectedRoute>
-            <Layout />
+            {isMobile ? <MobileDashboard /> : <Layout />}
           </ProtectedRoute>
         }>
           <Route index element={<Dashboard />} />
@@ -86,6 +108,8 @@ const AppRoutes: React.FC = () => {
           <Route path="expenses" element={<div className="p-8 text-center">Expenses module coming soon...</div>} />
           <Route path="patients" element={<div className="p-8 text-center">Patients module coming soon...</div>} />
           <Route path="reports" element={<ReportsAnalytics />} />
+          <Route path="reports/builder" element={<CustomReportBuilder />} />
+          <Route path="reports/email" element={<EmailReports />} />
           <Route path="subscriptions" element={
             <AdminRouteWrapper>
               <SubscriptionManagement />

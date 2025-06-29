@@ -21,13 +21,16 @@ import {
   ChevronRight,
   Crown,
   BarChart3,
+  FileText,
+  Mail,
+  PlusCircle,
 } from 'lucide-react';
 import { useAuthContext } from '../../contexts/AuthContext';
 
 const Sidebar: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<string[]>(['settings']);
+  const [expandedSections, setExpandedSections] = useState<string[]>(['reports', 'settings']);
   const { signOut, appUser } = useAuthContext();
   const navigate = useNavigate();
 
@@ -52,11 +55,16 @@ const Sidebar: React.FC = () => {
     { icon: CreditCard, label: 'Payments', path: '/payments' },
     { icon: TrendingUp, label: 'Expenses', path: '/expenses' },
     { icon: Users, label: 'Patients', path: '/patients' },
-    { icon: BarChart3, label: 'Reports', path: '/reports' },
   ];
 
   const adminNavItems = [
     { icon: Crown, label: 'Subscriptions', path: '/subscriptions' },
+  ];
+
+  const reportsItems = [
+    { icon: BarChart3, label: 'Analytics', path: '/reports' },
+    { icon: PlusCircle, label: 'Report Builder', path: '/reports/builder' },
+    { icon: Mail, label: 'Email Reports', path: '/reports/email' },
   ];
 
   const settingsItems = [
@@ -110,6 +118,45 @@ const Sidebar: React.FC = () => {
                   {!isCollapsed && <span>{item.label}</span>}
                 </NavLink>
               ))}
+            </div>
+
+            {/* Reports Section */}
+            <div className="mt-8">
+              <button
+                onClick={() => toggleSection('reports')}
+                className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+              >
+                <div className="flex items-center space-x-3">
+                  <BarChart3 className="w-5 h-5" />
+                  {!isCollapsed && <span>Reports</span>}
+                </div>
+                {!isCollapsed && (
+                  expandedSections.includes('reports') 
+                    ? <ChevronDown className="w-4 h-4" />
+                    : <ChevronRight className="w-4 h-4" />
+                )}
+              </button>
+
+              {!isCollapsed && expandedSections.includes('reports') && (
+                <div className="ml-6 mt-2 space-y-1">
+                  {reportsItems.map((item) => (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      className={({ isActive }) =>
+                        `flex items-center space-x-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                          isActive
+                            ? 'bg-blue-50 text-blue-600'
+                            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                        }`
+                      }
+                    >
+                      <item.icon className="w-4 h-4" />
+                      <span>{item.label}</span>
+                    </NavLink>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Admin Section */}

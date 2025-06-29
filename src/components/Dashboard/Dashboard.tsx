@@ -10,14 +10,18 @@ import {
   DollarSign,
   Wifi,
   WifiOff,
-  RefreshCw
+  RefreshCw,
+  Settings,
+  BarChart3,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Medicine, Sale, Patient } from '../../types';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import SubscriptionStatus from '../Subscriptions/SubscriptionStatus';
+import SmartKPIWidgets from '../KPI/SmartKPIWidgets';
 import { useRealtimeData } from '../../hooks/useRealtimeData';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
+import { useAuthContext } from '../../contexts/AuthContext';
 
 interface DashboardStats {
   totalSales: number;
@@ -44,6 +48,10 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [kpiTimeframe, setKpiTimeframe] = useState<'24h' | '7d' | '30d' | '90d'>('30d');
+  const [showKPISettings, setShowKPISettings] = useState(false);
+
+  const { appUser } = useAuthContext();
 
   // Cache dashboard stats
   const [cachedStats, setCachedStats] = useLocalStorage({
@@ -166,34 +174,9 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const StatCard: React.FC<{
-    title: string;
-    value: string | number;
-    icon: React.ReactNode;
-    trend?: 'up' | 'down';
-    trendValue?: string;
-    color: string;
-  }> = ({ title, value, icon, trend, trendValue, color }) => (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-          {trend && trendValue && (
-            <div className={`flex items-center mt-2 text-sm ${
-              trend === 'up' ? 'text-green-600' : 'text-red-600'
-            }`}>
-              {trend === 'up' ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
-              {trendValue}
-            </div>
-          )}
-        </div>
-        <div className={`p-3 rounded-lg ${color}`}>
-          {icon}
-        </div>
-      </div>
-    </div>
-  );
+  const handleRefresh = async () => {
+    await fetchDashboardStats();
+  };
 
   if (loading && !cachedStats) {
     return (
@@ -216,7 +199,12 @@ const Dashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Welcome back, {appUser?.full_name}!
+          </h1>
+          <p className="text-gray-600 mt-1">Here's what's happening with your pharmacy today</p>
+        </div>
         <div className="flex items-center space-x-4">
           {/* Online/Offline Status */}
           <div className="flex items-center space-x-2">
@@ -241,9 +229,18 @@ const Dashboard: React.FC = () => {
             </div>
           )}
 
+          {/* KPI Settings */}
+          <button
+            onClick={() => setShowKPISettings(!showKPISettings)}
+            className="flex items-center space-x-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            <Settings className="w-4 h-4" />
+            <span>KPI Settings</span>
+          </button>
+
           {/* Refresh Button */}
           <button
-            onClick={fetchDashboardStats}
+            onClick={handleRefresh}
             disabled={!isOnline}
             className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -263,31 +260,59 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Total Sales (30 days)"
-          value={`$${stats.totalSales.toFixed(2)}`}
-          icon={<DollarSign className="w-6 h-6 text-white" />}
-          color="bg-green-500"
-        />
-        <StatCard
-          title="Today's Sales"
-          value={`$${stats.todaySales.toFixed(2)}`}
-          icon={<Receipt className="w-6 h-6 text-white" />}
-          color="bg-blue-500"
-        />
-        <StatCard
-          title="Total Medicines"
-          value={stats.totalMedicines}
-          icon={<Package className="w-6 h-6 text-white" />}
-          color="bg-purple-500"
-        />
-        <StatCard
-          title="Total Patients"
-          value={stats.totalPatients}
-          icon={<Users className="w-6 h-6 text-white" />}
-          color="bg-indigo-500"
+      {/* KPI Settings Panel */}
+      {showKPISettings && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">KPI Dashboard Settings</h3>
+            <button
+              onClick={() => setShowKPISettings(false)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              ×
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Time Frame
+              </label>
+              <select
+                value={kpiTimeframe}
+                onChange={(e) => setKpiTimeframe(e.target.value as any)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="24h">Last 24 Hours</option>
+                <option value="7d">Last 7 Days</option>
+                <option value="30d">Last 30 Days</option>
+                <option value="90d">Last 90 Days</option>
+              </select>
+            </div>
+            <div className="flex items-end">
+              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                Apply Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Smart KPI Widgets */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">Key Performance Indicators</h2>
+          <a
+            href="/reports"
+            className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 transition-colors"
+          >
+            <BarChart3 className="w-4 h-4" />
+            <span>View Detailed Reports</span>
+          </a>
+        </div>
+        <SmartKPIWidgets
+          timeframe={kpiTimeframe}
+          layout="grid"
+          showTargets={true}
         />
       </div>
 
