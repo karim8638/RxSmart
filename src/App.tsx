@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuthContext } from './contexts/AuthContext';
 import Layout from './components/Layout/Layout';
 import AdminLayout from './components/Admin/AdminLayout';
-import AdminRoute from './components/Admin/AdminRoute';
 import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 import Dashboard from './components/Dashboard/Dashboard';
@@ -16,6 +15,9 @@ import SubscriptionRequest from './components/Subscriptions/SubscriptionRequest'
 import SubscriptionManagement from './components/Subscriptions/SubscriptionManagement';
 import AdminDashboard from './components/Admin/AdminDashboard';
 import UserManagement from './components/Admin/UserManagement';
+import OrganizationSetup from './components/Organization/OrganizationSetup';
+import TeamManagement from './components/Team/TeamManagement';
+import SecurityCenter from './components/Security/SecurityCenter';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuthContext();
@@ -45,6 +47,25 @@ const AdminRouteWrapper: React.FC<{ children: React.ReactNode }> = ({ children }
   return appUser?.role === 'admin' ? <>{children}</> : <Navigate to="/" replace />;
 };
 
+const OrganizationCheck: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { appUser, loading } = useAuthContext();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+  
+  // If user doesn't have an organization, redirect to setup
+  if (appUser && !appUser.organization_id) {
+    return <Navigate to="/organization/setup" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
 // Mobile detection hook
 const useIsMobile = () => {
   const [isMobile, setIsMobile] = React.useState(false);
@@ -70,6 +91,14 @@ const AppRoutes: React.FC = () => {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        
+        {/* Organization Setup */}
+        <Route path="/organization/setup" element={
+          <ProtectedRoute>
+            <OrganizationSetup />
+          </ProtectedRoute>
+        } />
+        
         <Route path="/subscription-request" element={
           <ProtectedRoute>
             <SubscriptionRequest />
@@ -79,9 +108,11 @@ const AppRoutes: React.FC = () => {
         {/* Admin Routes */}
         <Route path="/admin" element={
           <ProtectedRoute>
-            <AdminRouteWrapper>
-              <AdminLayout />
-            </AdminRouteWrapper>
+            <OrganizationCheck>
+              <AdminRouteWrapper>
+                <AdminLayout />
+              </AdminRouteWrapper>
+            </OrganizationCheck>
           </ProtectedRoute>
         }>
           <Route path="dashboard" element={<AdminDashboard />} />
@@ -97,7 +128,9 @@ const AppRoutes: React.FC = () => {
         {/* Regular User Routes */}
         <Route path="/" element={
           <ProtectedRoute>
-            {isMobile ? <MobileDashboard /> : <Layout />}
+            <OrganizationCheck>
+              {isMobile ? <MobileDashboard /> : <Layout />}
+            </OrganizationCheck>
           </ProtectedRoute>
         }>
           <Route index element={<Dashboard />} />
@@ -110,6 +143,8 @@ const AppRoutes: React.FC = () => {
           <Route path="reports" element={<ReportsAnalytics />} />
           <Route path="reports/builder" element={<CustomReportBuilder />} />
           <Route path="reports/email" element={<EmailReports />} />
+          <Route path="team" element={<TeamManagement />} />
+          <Route path="security" element={<SecurityCenter />} />
           <Route path="subscriptions" element={
             <AdminRouteWrapper>
               <SubscriptionManagement />

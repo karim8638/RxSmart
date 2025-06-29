@@ -24,6 +24,11 @@ import {
   FileText,
   Mail,
   PlusCircle,
+  Shield,
+  Building2,
+  UserPlus,
+  Database,
+  Store,
 } from 'lucide-react';
 import { useAuthContext } from '../../contexts/AuthContext';
 
@@ -58,7 +63,11 @@ const Sidebar: React.FC = () => {
   ];
 
   const adminNavItems = [
+    { icon: Building2, label: 'Organization', path: '/organization' },
+    { icon: Store, label: 'Stores', path: '/stores' },
+    { icon: UserPlus, label: 'Team', path: '/team' },
     { icon: Crown, label: 'Subscriptions', path: '/subscriptions' },
+    { icon: Shield, label: 'Security', path: '/security' },
   ];
 
   const reportsItems = [
@@ -70,6 +79,7 @@ const Sidebar: React.FC = () => {
   const settingsItems = [
     { icon: Settings, label: 'General', path: '/settings/general' },
     { icon: User, label: 'Profile', path: '/settings/profile' },
+    { icon: Database, label: 'Data & Backup', path: '/settings/backup' },
     { icon: HelpCircle, label: 'Help', path: '/settings/help' },
     { icon: Star, label: 'Feedback', path: '/settings/feedback' },
     { icon: Phone, label: 'Contact', path: '/settings/contact' },
@@ -88,7 +98,10 @@ const Sidebar: React.FC = () => {
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
                   <Pill className="w-5 h-5 text-white" />
                 </div>
-                <h1 className="text-xl font-bold text-gray-800">RxSmart</h1>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-800">RxSmart</h1>
+                  <p className="text-xs text-gray-500">Enterprise Edition</p>
+                </div>
               </div>
             )}
             <button
@@ -98,6 +111,23 @@ const Sidebar: React.FC = () => {
               {isCollapsed ? <Menu className="w-5 h-5" /> : <X className="w-5 h-5" />}
             </button>
           </div>
+
+          {/* Organization Info */}
+          {!isCollapsed && appUser?.organization_id && (
+            <div className="p-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
+                  <Building2 className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    ABC Pharmacy Chain
+                  </p>
+                  <p className="text-xs text-gray-600">Main Branch</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto p-4">
@@ -163,7 +193,7 @@ const Sidebar: React.FC = () => {
             {appUser?.role === 'admin' && (
               <div className="mt-8">
                 <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  {!isCollapsed && 'Admin'}
+                  {!isCollapsed && 'Administration'}
                 </div>
                 <div className="space-y-2">
                   {adminNavItems.map((item) => (
@@ -237,8 +267,24 @@ const Sidebar: React.FC = () => {
             </div>
           </nav>
 
-          {/* Sign Out */}
+          {/* User Profile & Sign Out */}
           <div className="p-4 border-t">
+            {!isCollapsed && (
+              <div className="flex items-center space-x-3 mb-3">
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm font-semibold">
+                    {appUser?.full_name?.charAt(0) || 'U'}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {appUser?.full_name}
+                  </p>
+                  <p className="text-xs text-gray-600 capitalize">{appUser?.role}</p>
+                </div>
+              </div>
+            )}
+            
             <button
               onClick={handleSignOut}
               className="flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors w-full"
