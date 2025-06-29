@@ -8,6 +8,7 @@ import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 import Dashboard from './components/Dashboard/Dashboard';
 import MedicineList from './components/Medicines/MedicineList';
+import ReportsAnalytics from './components/Reports/ReportsAnalytics';
 import SubscriptionRequest from './components/Subscriptions/SubscriptionRequest';
 import SubscriptionManagement from './components/Subscriptions/SubscriptionManagement';
 import AdminDashboard from './components/Admin/AdminDashboard';
@@ -65,7 +66,7 @@ const AppRoutes: React.FC = () => {
           <Route path="users" element={<UserManagement />} />
           <Route path="subscriptions" element={<SubscriptionManagement />} />
           <Route path="inventory" element={<div className="p-8 text-center">Inventory management coming soon...</div>} />
-          <Route path="analytics" element={<div className="p-8 text-center">Sales analytics coming soon...</div>} />
+          <Route path="analytics" element={<ReportsAnalytics />} />
           <Route path="payments" element={<div className="p-8 text-center">Payment management coming soon...</div>} />
           <Route path="settings" element={<div className="p-8 text-center">Admin settings coming soon...</div>} />
           <Route index element={<Navigate to="/admin/dashboard" replace />} />
@@ -84,6 +85,7 @@ const AppRoutes: React.FC = () => {
           <Route path="payments" element={<div className="p-8 text-center">Payments module coming soon...</div>} />
           <Route path="expenses" element={<div className="p-8 text-center">Expenses module coming soon...</div>} />
           <Route path="patients" element={<div className="p-8 text-center">Patients module coming soon...</div>} />
+          <Route path="reports" element={<ReportsAnalytics />} />
           <Route path="subscriptions" element={
             <AdminRouteWrapper>
               <SubscriptionManagement />

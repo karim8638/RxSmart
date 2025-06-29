@@ -19,7 +19,7 @@ const AdminSidebar: React.FC = () => {
     { icon: Users, label: 'Users', path: '/admin/users' },
     { icon: Crown, label: 'Subscriptions', path: '/admin/subscriptions' },
     { icon: Package, label: 'Inventory', path: '/admin/inventory' },
-    { icon: TrendingUp, label: 'Sales Analytics', path: '/admin/analytics' },
+    { icon: BarChart3, label: 'Analytics', path: '/admin/analytics' },
     { icon: CreditCard, label: 'Payments', path: '/admin/payments' },
     { icon: Settings, label: 'Settings', path: '/admin/settings' },
   ];

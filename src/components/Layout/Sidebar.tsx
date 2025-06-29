@@ -20,6 +20,7 @@ import {
   ChevronDown,
   ChevronRight,
   Crown,
+  BarChart3,
 } from 'lucide-react';
 import { useAuthContext } from '../../contexts/AuthContext';
 
@@ -51,6 +52,7 @@ const Sidebar: React.FC = () => {
     { icon: CreditCard, label: 'Payments', path: '/payments' },
     { icon: TrendingUp, label: 'Expenses', path: '/expenses' },
     { icon: Users, label: 'Patients', path: '/patients' },
+    { icon: BarChart3, label: 'Reports', path: '/reports' },
   ];
 
   const adminNavItems = [
