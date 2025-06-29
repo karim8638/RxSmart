@@ -1,27 +1,26 @@
 /*
-  # Add Subscription System
+  # Fix subscriptions table creation
 
   1. New Tables
-    - `subscriptions` - User subscription requests and status
+    - `subscriptions`
       - `id` (uuid, primary key)
-      - `user_id` (uuid, foreign key to auth.users)
+      - `user_id` (uuid, references auth.users)
       - `plan` (text, monthly/yearly)
       - `price` (numeric)
-      - `is_active` (boolean, default false)
-      - `start_date` (timestamp)
-      - `end_date` (timestamp)
-      - `created_at` (timestamp)
-      - `updated_at` (timestamp)
+      - `is_active` (boolean)
+      - `start_date` (timestamptz)
+      - `end_date` (timestamptz)
+      - `created_at` (timestamptz)
+      - `updated_at` (timestamptz)
 
   2. Security
-    - Enable RLS on subscriptions table
+    - Enable RLS on `subscriptions` table
     - Add policies for users to view their own subscriptions
     - Add policies for admins to manage all subscriptions
+    - Add policy for users to create subscription requests
 
-  3. Features
-    - Manual approval workflow
-    - Status tracking (pending, active, cancelled)
-    - Plan management (monthly/yearly)
+  3. Functions
+    - Add trigger for updated_at column
 */
 
 -- Create subscriptions table if it doesn't exist
@@ -40,6 +39,11 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 -- Enable RLS
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "View own subscription" ON subscriptions;
+DROP POLICY IF EXISTS "Admin can manage all" ON subscriptions;
+DROP POLICY IF EXISTS "Users can create subscription requests" ON subscriptions;
+
 -- Create policies
 CREATE POLICY "View own subscription"
   ON subscriptions
@@ -55,11 +59,19 @@ CREATE POLICY "Admin can manage all"
     (SELECT profiles.role FROM profiles WHERE profiles.id = auth.uid()) = 'admin'
   );
 
--- Create trigger for updated_at
-CREATE TRIGGER update_subscriptions_updated_at
-  BEFORE UPDATE ON subscriptions
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+-- Create trigger for updated_at if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger 
+    WHERE tgname = 'update_subscriptions_updated_at'
+  ) THEN
+    CREATE TRIGGER update_subscriptions_updated_at
+      BEFORE UPDATE ON subscriptions
+      FOR EACH ROW
+      EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- Insert policy for users to create their own subscription requests
 CREATE POLICY "Users can create subscription requests"
