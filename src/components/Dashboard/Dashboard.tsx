@@ -13,10 +13,12 @@ import {
   RefreshCw,
   Settings,
   BarChart3,
+  Clock,
+  XCircle,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Medicine, Sale, Patient } from '../../types';
-import { format, subDays, startOfDay, endOfDay } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay, differenceInDays } from 'date-fns';
 import SubscriptionStatus from '../Subscriptions/SubscriptionStatus';
 import SmartKPIWidgets from '../KPI/SmartKPIWidgets';
 import { useRealtimeData } from '../../hooks/useRealtimeData';
@@ -28,10 +30,13 @@ interface DashboardStats {
   totalMedicines: number;
   lowStockCount: number;
   expiringCount: number;
+  expiredCount: number;
   totalPatients: number;
   todaySales: number;
   recentSales: Sale[];
   lowStockMedicines: Medicine[];
+  expiringMedicines: Medicine[];
+  expiredMedicines: Medicine[];
 }
 
 const Dashboard: React.FC = () => {
@@ -40,10 +45,13 @@ const Dashboard: React.FC = () => {
     totalMedicines: 0,
     lowStockCount: 0,
     expiringCount: 0,
+    expiredCount: 0,
     totalPatients: 0,
     todaySales: 0,
     recentSales: [],
     lowStockMedicines: [],
+    expiringMedicines: [],
+    expiredMedicines: [],
   });
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -124,12 +132,18 @@ const Dashboard: React.FC = () => {
         return saleDate >= todayStart && saleDate <= todayEnd ? sum + sale.total_amount : sum;
       }, 0);
 
+      // Calculate expiry-related stats
       const lowStockMedicines = medicines.filter(med => med.quantity <= med.min_stock_level);
+      
       const expiringMedicines = medicines.filter(med => {
         const expiryDate = new Date(med.expiry_date);
-        const thirtyDaysFromNow = new Date();
-        thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-        return expiryDate <= thirtyDaysFromNow;
+        const daysUntilExpiry = differenceInDays(expiryDate, today);
+        return daysUntilExpiry > 0 && daysUntilExpiry <= 30;
+      });
+
+      const expiredMedicines = medicines.filter(med => {
+        const expiryDate = new Date(med.expiry_date);
+        return differenceInDays(expiryDate, today) < 0;
       });
 
       // Fetch recent sales with patient info if online
@@ -154,10 +168,13 @@ const Dashboard: React.FC = () => {
         totalMedicines: medicines.length,
         lowStockCount: lowStockMedicines.length,
         expiringCount: expiringMedicines.length,
+        expiredCount: expiredMedicines.length,
         totalPatients: patients.length,
         todaySales: todaySalesAmount,
         recentSales: recentSalesData,
         lowStockMedicines: lowStockMedicines.slice(0, 5),
+        expiringMedicines: expiringMedicines.slice(0, 5),
+        expiredMedicines: expiredMedicines.slice(0, 5),
       };
 
       setStats(newStats);
@@ -260,6 +277,68 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
+      {/* Critical Alerts */}
+      {(stats.expiredCount > 0 || stats.expiringCount > 0 || stats.lowStockCount > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {stats.expiredCount > 0 && (
+            <div className="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-xl p-4">
+              <div className="flex items-center space-x-3">
+                <XCircle className="w-6 h-6 text-red-600" />
+                <div>
+                  <h3 className="text-lg font-semibold text-red-800">Expired Medicines</h3>
+                  <p className="text-red-700">{stats.expiredCount} medicines have expired</p>
+                </div>
+              </div>
+              <div className="mt-3 space-y-1">
+                {stats.expiredMedicines.map((medicine) => (
+                  <div key={medicine.id} className="text-sm text-red-700">
+                    • {medicine.name} (Batch: {medicine.batch_no})
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {stats.expiringCount > 0 && (
+            <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-xl p-4">
+              <div className="flex items-center space-x-3">
+                <Clock className="w-6 h-6 text-orange-600" />
+                <div>
+                  <h3 className="text-lg font-semibold text-orange-800">Expiring Soon</h3>
+                  <p className="text-orange-700">{stats.expiringCount} medicines expire within 30 days</p>
+                </div>
+              </div>
+              <div className="mt-3 space-y-1">
+                {stats.expiringMedicines.map((medicine) => (
+                  <div key={medicine.id} className="text-sm text-orange-700">
+                    • {medicine.name} (Expires: {format(new Date(medicine.expiry_date), 'MMM dd')})
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {stats.lowStockCount > 0 && (
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
+              <div className="flex items-center space-x-3">
+                <AlertTriangle className="w-6 h-6 text-amber-600" />
+                <div>
+                  <h3 className="text-lg font-semibold text-amber-800">Low Stock Alert</h3>
+                  <p className="text-amber-700">{stats.lowStockCount} medicines are running low</p>
+                </div>
+              </div>
+              <div className="mt-3 space-y-1">
+                {stats.lowStockMedicines.map((medicine) => (
+                  <div key={medicine.id} className="text-sm text-amber-700">
+                    • {medicine.name} ({medicine.quantity} left)
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* KPI Settings Panel */}
       {showKPISettings && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -316,78 +395,46 @@ const Dashboard: React.FC = () => {
         />
       </div>
 
-      {/* Subscription Status and Alerts */}
+      {/* Subscription Status */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1">
           <SubscriptionStatus />
         </div>
         
+        {/* Recent Sales */}
         <div className="lg:col-span-2">
-          {(stats.lowStockCount > 0 || stats.expiringCount > 0) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {stats.lowStockCount > 0 && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <AlertTriangle className="w-6 h-6 text-amber-600" />
-                    <h3 className="text-lg font-semibold text-amber-800">Low Stock Alert</h3>
-                  </div>
-                  <p className="text-amber-700 mb-4">{stats.lowStockCount} medicines are running low on stock</p>
-                  <div className="space-y-2">
-                    {stats.lowStockMedicines.map((medicine) => (
-                      <div key={medicine.id} className="flex justify-between items-center text-sm">
-                        <span className="font-medium">{medicine.name}</span>
-                        <span className="text-amber-600">{medicine.quantity} left</span>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div className="p-6 border-b border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900">Recent Sales</h3>
+            </div>
+            <div className="p-6">
+              {stats.recentSales.length > 0 ? (
+                <div className="space-y-4">
+                  {stats.recentSales.map((sale) => (
+                    <div key={sale.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                      <div>
+                        <p className="font-medium text-gray-900">Invoice #{sale.invoice_no}</p>
+                        <p className="text-sm text-gray-600">
+                          {sale.patient?.name || 'Walk-in Customer'} • {format(new Date(sale.created_at), 'MMM dd, yyyy')}
+                        </p>
                       </div>
-                    ))}
-                  </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-gray-900">${sale.total_amount.toFixed(2)}</p>
+                        <p className={`text-sm ${
+                          sale.payment_status === 'paid' ? 'text-green-600' : 
+                          sale.payment_status === 'pending' ? 'text-yellow-600' : 'text-red-600'
+                        }`}>
+                          {sale.payment_status}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              )}
-
-              {stats.expiringCount > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-6">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <AlertTriangle className="w-6 h-6 text-red-600" />
-                    <h3 className="text-lg font-semibold text-red-800">Expiry Alert</h3>
-                  </div>
-                  <p className="text-red-700">{stats.expiringCount} medicines are expiring within 30 days</p>
-                </div>
+              ) : (
+                <p className="text-gray-500 text-center py-8">No recent sales</p>
               )}
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* Recent Sales */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="p-6 border-b border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900">Recent Sales</h3>
-        </div>
-        <div className="p-6">
-          {stats.recentSales.length > 0 ? (
-            <div className="space-y-4">
-              {stats.recentSales.map((sale) => (
-                <div key={sale.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
-                  <div>
-                    <p className="font-medium text-gray-900">Invoice #{sale.invoice_no}</p>
-                    <p className="text-sm text-gray-600">
-                      {sale.patient?.name || 'Walk-in Customer'} • {format(new Date(sale.created_at), 'MMM dd, yyyy')}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-900">${sale.total_amount.toFixed(2)}</p>
-                    <p className={`text-sm ${
-                      sale.payment_status === 'paid' ? 'text-green-600' : 
-                      sale.payment_status === 'pending' ? 'text-yellow-600' : 'text-red-600'
-                    }`}>
-                      {sale.payment_status}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-8">No recent sales</p>
-          )}
+          </div>
         </div>
       </div>
     </div>
